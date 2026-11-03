@@ -216,7 +216,7 @@ var timerId=null;
 var toastT=null;
 
 function byId(id){for(var i=0;i<S.players.length;i++){if(S.players[i].id===id)return S.players[i];}return null;}
-function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('on');},2300);}
+function toast(m,ms){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('on');},ms||2300);}
 
 /* ---------- timer ---------- */
 function chg(){return Math.min(6,Math.max(2,S.players.length-1));}
@@ -741,10 +741,35 @@ document.addEventListener('change',function(e){
   toast('تم حفظ صوت '+byId(id).name);
 });
 
-var dip=null,ib=document.createElement('button');ib.id='ins';ib.textContent='📲 ثبّت التطبيق';ib.hidden=true;document.body.appendChild(ib);
-window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();dip=e;ib.hidden=false;});
-ib.onclick=function(){if(!dip)return;dip.prompt();dip.userChoice.then(function(){dip=null;ib.hidden=true;});};
-window.addEventListener('appinstalled',function(){ib.hidden=true;});
+var dip=null,used=false,ib=document.createElement('button');ib.id='ins';ib.textContent='📲 ثبّت التطبيق';document.body.appendChild(ib);
+var UA=navigator.userAgent,AND=/Android/i.test(UA),IOS=/iPhone|iPad|iPod/i.test(UA)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+var INAPP=/FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Snapchat|TikTok|Twitter|Telegram|WhatsApp|Messenger|GSA\/|; wv\)/i.test(UA);
+var BOUNCED=/[?&]c=1(&|$)/.test(location.search);
+var STANDALONE=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+function getInst(){try{return localStorage.getItem('inst')==='1';}catch(e){return false;}}
+function setInst(){try{localStorage.setItem('inst','1');}catch(e){}}
+if(STANDALONE)setInst();
+if(BOUNCED&&history.replaceState){try{history.replaceState(null,'',location.pathname+location.hash);}catch(e){}}
+function base(){return location.href.split('#')[0].split('?')[0].replace(/^https?:\/\//,'');}
+function toChrome(){
+  if(AND){location.href='intent://'+base()+'?c=1#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(location.href.split('#')[0])+';end';return true;}
+  if(IOS){location.href='googlechromes://'+base()+'?c=1';return true;}
+  return false;
+}
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();dip=e;try{localStorage.removeItem('inst');}catch(x){}});
+window.addEventListener('appinstalled',function(){setInst();dip=null;toast('تم تثبيت التطبيق ✅',3000);});
+ib.onclick=function(){
+  if(dip){used=true;dip.prompt();dip.userChoice.then(function(r){if(r&&r.outcome==='accepted')setInst();});dip=null;return;}
+  if(STANDALONE||getInst()){toast('التطبيق منزّل أصلاً على هالجهاز ✅ دوّر عليه بالشاشة الرئيسية.',4500);return;}
+  if(used){toast('المتصفح بسمح بنافذة التثبيت مرة وحدة. حمّل الصفحة من جديد، أو من قائمة كروم ⋮ اختار «تثبيت التطبيق».',7000);return;}
+  if(INAPP&&!BOUNCED){
+    toast('عم أفتحها بكروم...',2500);setTimeout(toChrome,400);
+    if(IOS)setTimeout(function(){toast('إذا ما انفتح كروم: من ⋯ اختار «فتح بالمتصفح» (سفاري)، وبعدها مشاركة ثم «إضافة إلى الشاشة الرئيسية».',8000);},2200);
+    return;
+  }
+  if(AND&&!BOUNCED){toast('عم أفتحها بكروم عشان التثبيت...',2500);setTimeout(toChrome,400);return;}
+  toast(IOS?'على آيفون: اضغط زر المشاركة ⬆️ ثم «إضافة إلى الشاشة الرئيسية».':(AND?'من قائمة كروم ⋮ اختار «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».':'استخدم أيقونة التثبيت بشريط العنوان (كروم أو إيدج)، أو القائمة ⋮ ثم «تثبيت».'),7000);
+};
 if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
 render();
 })();
